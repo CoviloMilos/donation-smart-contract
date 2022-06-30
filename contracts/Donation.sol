@@ -12,6 +12,11 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 contract Donation is Ownable {
     using Counters for Counters.Counter;
 
+    struct HighestDonation {
+        address donor;
+        uint256 amount;
+    }
+
     enum CampaignStatus {
         NOT_FOUND,
         IN_PROGRESS,
@@ -26,16 +31,19 @@ contract Donation is Ownable {
         uint256 moneyToRaisGoal;
         uint256 balance;
         address campaignManager;
-        bool registered;
         CampaignStatus status;
     }
 
     Counters.Counter public campaignIdentifer;
-    Counters.Counter public archivedCampaignIdentifer;
     mapping(uint256 => Campaign) public campaigns;
+
+    Counters.Counter public archivedCampaignIdentifer;
     mapping(uint256 => Campaign) public archivedCampaigns;
 
     mapping(address => bool) public admins;
+
+    HighestDonation public highestDonation;
+
 
     constructor() {
         admins[owner()] = true;
@@ -88,19 +96,25 @@ contract Donation is Ownable {
         _;
     }
 
+    /// @notice Assign admin who is authorized to create campaign
+    /// @dev Only owner of contract can call this method
+    /// @param admin - Address of admin
     function assignAdmin(address admin) public onlyOwner {
         admins[admin] = true;
         emit AdminAssigned(admin);
     }
 
+    /// @notice Revoke admin. Owner of contract can't be revoked!
+    /// @dev Only owner of contract can call this method
+    /// @param admin - Address of admin
     function revokeAdmin(address admin) public onlyOwner {
-        require(admin != owner(), "Contract owner can't be removed from admins list");
+        require(admin != owner(), "Owner must be admin");
         delete admins[admin];
         emit AdminRevoked(admin);
     }
 
-    /// @notice Create campaign only by registered admins. Contact admin in order to create campaign
-    /// @dev validateString Modifier for checking if string is empty
+    /// @notice Create campaign only by registered admins.
+    /// @dev Function has custom modifiers for validating funtion arguments. If all checks are passed CampaignCreated event is emmited
     /// @param name Name of campaign
     /// @param description Description of campaign
     /// @param timeGoal The time goal of campaign
@@ -117,21 +131,36 @@ contract Donation is Ownable {
         if (moneyToRaisGoal == 0) revert InvalidMoneyGoal();
 
         campaignIdentifer.increment();
-        campaigns[campaignIdentifer.current()] = Campaign(name, description, timeGoal, moneyToRaisGoal, 0, campaignManager, true, CampaignStatus.IN_PROGRESS);
+        campaigns[campaignIdentifer.current()] = Campaign(name, description, timeGoal, moneyToRaisGoal, 0, campaignManager, CampaignStatus.IN_PROGRESS);
 
         emit CampaignCreated(msg.sender, campaignManager, campaignIdentifer.current(), name);
     }
 
     /// @notice Send donation to specific campaign. Only applies on campaings which have IN_PROGRESS status. Donations less or equal to 0 are rejected
+    /// @dev Function has custom modifiers for validating funtion arguments. If all checks are passed DonationCreated event is emmited
     /// @dev ableToDonate Modifier for checking if campaign has IN_PROGRESS status or if exist
-    /// @dev validateDonation Modifier for checking if msg.value <= 0
     /// @param campaignId Used to identify campaign
     function donate(uint256 campaignId) public payable ableToDonate(campaignId) validateDonation {
         Campaign storage campaign = campaigns[campaignId];
-        campaign.balance += msg.value;
+        uint256 newBalance = campaign.balance + msg.value;
+        uint256 donation = msg.value;
+        
 
-        if (moneyGoalReached(campaign.balance, campaign.moneyToRaisGoal) || timeGoalReached(campaign.timeGoal)) {
+        if (moneyGoalReached(newBalance, campaign.moneyToRaisGoal) || timeGoalReached(campaign.timeGoal)) {
             campaign.status = CampaignStatus.COMPLETED;
+            uint256 balanceDiff = newBalance - campaign.moneyToRaisGoal;
+
+            if (balanceDiff > 0) {
+                donation -= balanceDiff;
+                (bool success, ) = payable(msg.sender).call{value: balanceDiff}("");
+                if (!success) revert FundsTransferFail();
+            }
+        }
+
+        campaign.balance += donation;
+
+        if (donation > highestDonation.amount) {
+            highestDonation = HighestDonation(msg.sender, donation);
         }
 
         emit DonationCreated(msg.sender, msg.value); 
