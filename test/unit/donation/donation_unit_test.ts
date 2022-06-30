@@ -1,6 +1,3 @@
-/* eslint-disable no-unused-vars */
-/* eslint-disable node/no-missing-import */
-/* eslint-disable no-unused-expressions */
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { Contract, ContractReceipt, ContractTransaction } from "ethers";

@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 const ERROR = {
   ONLY_ONWER: "Ownable: caller is not the owner",
   OWNER_REVOKE: "Owner must be admin",
