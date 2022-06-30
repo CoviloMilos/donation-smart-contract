@@ -12,11 +12,6 @@ dotenv.config();
 const config: HardhatUserConfig = {
   solidity: "0.8.6",
   networks: {
-    // ropsten: {
-    //   url: process.env.ROPSTEN_URL || "",
-    //   accounts:
-    //     process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
-    // },
     rinkeby: {
       url: process.env.ALCHEMY_RINKEBY_URL || "",
       accounts:
