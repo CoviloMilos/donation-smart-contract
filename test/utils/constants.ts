@@ -1,1 +1,0 @@
-export const DONATION_CONTRACT = "Donation";
