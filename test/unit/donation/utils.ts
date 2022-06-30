@@ -18,6 +18,8 @@ const EVENT = {
   ADMIN_REVOKED: "AdminRevoked",
   CAMPAIGN_CREATED: "CampaignCreated",
   DONATION_CREATED: "DonationCreated",
+  FUNDS_WITHDRAWED: "FundsWithdrawed",
+  CAMPAIGN_ARCHIVED: "CampaignArchived",
 };
 
 enum CampaignStatus {

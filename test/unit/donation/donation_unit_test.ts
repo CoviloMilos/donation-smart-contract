@@ -247,9 +247,6 @@ describe("Donation Smart Contract", function () {
     });
 
     it("should withdraw funds to campaign manager wallet", async function () {
-      const joeBalance = await joe.getBalance();
-      const campaignMoneyRaisGoal = campaign.moneyToRaisGoal;
-
       await DonationContract.connect(vitalik).donate(campaignId, {
         value: ethers.utils.parseEther("4"),
       });
@@ -258,13 +255,19 @@ describe("Donation Smart Contract", function () {
         joe
       ).withdrawFunds(campaignId);
 
-      const receipt: ContractReceipt = await tx.wait();
-      const gasUsed = receipt.gasUsed;
-  
-      const balanceAfter = await joe.getBalance();
+      const archivedCampaignIdentifier = (
+        await DonationContract.archivedCampaignIdentifer()
+      ).toString();
 
+      const archivedCampaign = await DonationContract.archivedCampaigns(
+        archivedCampaignIdentifier
+      );
 
-      
+      await expect(tx).to.emit(DonationContract, EVENT.FUNDS_WITHDRAWED);
+      await expect(tx)
+        .to.emit(DonationContract, EVENT.CAMPAIGN_ARCHIVED)
+        .withArgs(archivedCampaignIdentifier);
+      expect(archivedCampaign.status).to.be.equal(CampaignStatus.ARCHIVED);
     });
 
     it("should revert if campaign by @param id doesn't exist", async function () {
@@ -288,7 +291,5 @@ describe("Donation Smart Contract", function () {
         ERROR.WITHDRAW_FORBIDDEN
       );
     });
-
-    
   });
 });
