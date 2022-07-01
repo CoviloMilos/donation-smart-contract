@@ -1,7 +1,8 @@
+import { Block } from "@ethersproject/abstract-provider";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
-import { Contract, ContractReceipt, ContractTransaction } from "ethers";
-import { ethers } from "hardhat";
+import { Contract, ContractTransaction } from "ethers";
+import { ethers, network } from "hardhat";
 import { CampaignStatus, ERROR, EVENT } from "./utils";
 
 describe("Donation Smart Contract", function () {
@@ -162,10 +163,11 @@ describe("Donation Smart Contract", function () {
     const campaign: any = {};
     let campaignId: number;
     const FIVE_MINUTES = 5 * 60;
+    let latestBlock: Block;
 
     beforeEach(async function () {
       await DonationContract.assignAdmin(adminOne.address);
-      const latestBlock = await ethers.provider.getBlock("latest");
+      latestBlock = await ethers.provider.getBlock("latest");
 
       campaign.name = "New Campaign";
       campaign.description = "Campaign to help all kids across the world";
@@ -199,6 +201,28 @@ describe("Donation Smart Contract", function () {
       await expect(
         DonationContract.donate(campaignId, { value: 0 })
       ).to.revertedWith(ERROR.INSUFFICIENT_DONATION);
+    });
+
+    it("should make campaign completed after time goal is reached", async function () {
+      await network.provider.send("evm_setNextBlockTimestamp", [
+        campaign.timeGoal + FIVE_MINUTES,
+      ]);
+      await network.provider.send("evm_mine");
+      const donation = ethers.utils.parseEther("5");
+      const tx: ContractTransaction = await DonationContract.donate(
+        campaignId,
+        {
+          value: donation,
+        }
+      );
+
+      const donatedCampaign = await DonationContract.campaigns(campaignId);
+
+      await expect(tx).to.emit(
+        DonationContract,
+        EVENT.CAMPAIGN_TIME_GOAL_REACHED
+      );
+      expect(donatedCampaign.status).to.be.equal(CampaignStatus.COMPLETED);
     });
 
     it("should make campaign completed after donation", async function () {

@@ -19,6 +19,7 @@ const EVENT = {
   DONATION_CREATED: "DonationCreated",
   FUNDS_WITHDRAWED: "FundsWithdrawed",
   CAMPAIGN_ARCHIVED: "CampaignArchived",
+  CAMPAIGN_TIME_GOAL_REACHED: "CampaignTimeGoalReached",
 };
 
 enum CampaignStatus {

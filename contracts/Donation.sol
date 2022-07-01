@@ -55,6 +55,7 @@ contract Donation is Ownable {
     event DonationCreated(address indexed donator, uint256 amount);
     event FundsWithdrawed(address indexed receiver, uint256 amount);
     event CampaignArchived(uint256 campaignId);
+    event CampaignTimeGoalReached();
 
     error EmptyString();
     error InvalidMoneyGoal();
@@ -142,28 +143,36 @@ contract Donation is Ownable {
     /// @param campaignId Used to identify campaign
     function donate(uint256 campaignId) public payable ableToDonate(campaignId) validateDonation {
         Campaign storage campaign = campaigns[campaignId];
-        uint256 newBalance = campaign.balance + msg.value;
-        uint256 donation = msg.value;
-        
 
-        if (moneyGoalReached(newBalance, campaign.moneyToRaisGoal) || timeGoalReached(campaign.timeGoal)) {
+        if (timeGoalReached(campaign.timeGoal)) {
             campaign.status = CampaignStatus.COMPLETED;
-            uint256 balanceDiff = newBalance - campaign.moneyToRaisGoal;
+            
+            // Find elegant way to complete campaign when time goal is reached.
+            // Because in this case someone need to spend gas so campaign could become completed
+            payback(msg.value);
+            emit CampaignTimeGoalReached();
+        } else {
+            uint256 newBalance = campaign.balance + msg.value;
+            uint256 donation = msg.value;
+            
+            if (moneyGoalReached(newBalance, campaign.moneyToRaisGoal)) {
+                campaign.status = CampaignStatus.COMPLETED;
+                uint256 balanceDiff = newBalance - campaign.moneyToRaisGoal;
 
-            if (balanceDiff > 0) {
-                donation -= balanceDiff;
-                (bool success, ) = payable(msg.sender).call{value: balanceDiff}("");
-                if (!success) revert FundsTransferFail();
+                if (balanceDiff > 0) {
+                    donation -= balanceDiff;
+                    payback(balanceDiff);
+                }
             }
-        }
 
-        campaign.balance += donation;
+            campaign.balance += donation;
 
-        if (donation > highestDonation.amount) {
-            highestDonation = HighestDonation(msg.sender, donation);
-        }
+            if (donation > highestDonation.amount) {
+                highestDonation = HighestDonation(msg.sender, donation);
+            }
 
-        emit DonationCreated(msg.sender, msg.value); 
+            emit DonationCreated(msg.sender, msg.value);
+        } 
     }
 
     /// @notice Withdraw funds to campaign manager only if campaign is in COMPLETED status
@@ -196,6 +205,11 @@ contract Donation is Ownable {
         delete campaigns[campaignId];
 
         emit CampaignArchived(archivedCampaignIdentifer.current());
+    }
+
+    function payback(uint amount) private {
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        if (!success) revert FundsTransferFail();
     }
 
     function moneyGoalReached(uint256 balance, uint256 moneyGoal) private pure returns(bool) {
