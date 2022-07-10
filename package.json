@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.6.0",
-    "ganache-cli": "^6.12.2"
+    "ganache-cli": "^6.12.2",
+    "solc": "^0.8.15"
   }
 }

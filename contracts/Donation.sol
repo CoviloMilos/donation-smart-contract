@@ -27,7 +27,7 @@ contract Donation is Ownable {
     struct Campaign {
         string name;
         string description;
-        uint timeGoal;
+        uint256 timeGoal;
         uint256 moneyToRaisGoal;
         uint256 balance;
         address campaignManager;
@@ -40,17 +40,12 @@ contract Donation is Ownable {
     Counters.Counter public archivedCampaignIdentifer;
     mapping(uint256 => Campaign) public archivedCampaigns;
 
-    mapping(address => bool) public admins;
-
     HighestDonation public highestDonation;
 
+    bool internal locked;
 
-    constructor() {
-        admins[owner()] = true;
-    }
+    constructor() {}
 
-    event AdminAssigned(address admin);
-    event AdminRevoked(address admin);
     event CampaignCreated(address indexed creator, address indexed campaignManager, uint256 campaignId, string name);
     event DonationCreated(address indexed donator, uint256 amount);
     event FundsWithdrawed(address indexed receiver, uint256 amount);
@@ -60,7 +55,6 @@ contract Donation is Ownable {
     error EmptyString();
     error InvalidMoneyGoal();
     error InvalidTimeGoal();
-    error CallerNotAdmin();
     error CampaignCompleted();
     error CampaignInProgress();
     error CampaignNotFound();
@@ -68,9 +62,12 @@ contract Donation is Ownable {
     error FundsTransferFail();
     error WithdrawForbidden();
 
-    modifier onlyAdmin() {
-        if (!admins[msg.sender]) revert CallerNotAdmin();
+
+    modifier noReentrant() {
+        require(!locked, "No re-entrancy");
+        locked = true;
         _;
+        locked = false;
     }
 
     modifier validateString(string calldata value) {
@@ -97,24 +94,7 @@ contract Donation is Ownable {
         _;
     }
 
-    /// @notice Assign admin who is authorized to create campaign
-    /// @dev Only owner of contract can call this method
-    /// @param admin - Address of admin
-    function assignAdmin(address admin) public onlyOwner {
-        admins[admin] = true;
-        emit AdminAssigned(admin);
-    }
-
-    /// @notice Revoke admin. Owner of contract can't be revoked!
-    /// @dev Only owner of contract can call this method
-    /// @param admin - Address of admin
-    function revokeAdmin(address admin) public onlyOwner {
-        require(admin != owner(), "Owner must be admin");
-        delete admins[admin];
-        emit AdminRevoked(admin);
-    }
-
-    /// @notice Create campaign only by registered admins.
+    /// @notice Create campaign only by registered owner.
     /// @dev Function has custom modifiers for validating funtion arguments. If all checks are passed CampaignCreated event is emmited
     /// @param name Name of campaign
     /// @param description Description of campaign
@@ -127,7 +107,7 @@ contract Donation is Ownable {
         uint timeGoal, 
         uint moneyToRaisGoal, 
         address campaignManager
-    ) public onlyAdmin validateString(name) validateString(description) {
+    ) public onlyOwner validateString(name) validateString(description) {
         if (block.timestamp > timeGoal) revert InvalidTimeGoal();
         if (moneyToRaisGoal == 0) revert InvalidMoneyGoal();
 
@@ -178,15 +158,15 @@ contract Donation is Ownable {
     /// @notice Withdraw funds to campaign manager only if campaign is in COMPLETED status
     /// @dev campaignCompleted Modifier for checking if campaign is COMPLETED
     /// @param campaignId Used to identify campaign
-    function withdrawFunds(uint256 campaignId) public campaignCompleted(campaignId) {
+    function withdrawFunds(uint256 campaignId) public noReentrant campaignCompleted(campaignId) {
         Campaign storage campaign = campaigns[campaignId];
 
         if (campaign.campaignManager != msg.sender) revert WithdrawForbidden();
 
+        campaign.balance = 0;
+
         (bool success, ) = payable(msg.sender).call{ value: campaign.balance }("");
         if (!success) revert FundsTransferFail();
-
-        campaign.balance = 0;
 
         emit FundsWithdrawed(campaign.campaignManager, campaign.balance);
 
@@ -207,15 +187,24 @@ contract Donation is Ownable {
         emit CampaignArchived(archivedCampaignIdentifer.current());
     }
 
+    /// @notice Function used for transfering funds
+    /// @param amount Amount of tokens
     function payback(uint amount) private {
         (bool success, ) = payable(msg.sender).call{value: amount}("");
         if (!success) revert FundsTransferFail();
     }
 
+
+    /// @notice Helper function to check if campaign money goal is reached
+    /// @param balance Balance to be compared
+    /// @param moneyGoal Campaign money goal
     function moneyGoalReached(uint256 balance, uint256 moneyGoal) private pure returns(bool) {
         return balance >= moneyGoal;
     }
 
+    /// @notice Helper function to check if campaign time goal is reached
+    /// @dev timeGoal is compared to block's timestamp
+    /// @param timeGoal Campaign time goal
     function timeGoalReached(uint256 timeGoal) private view returns(bool) {
         return block.timestamp >= timeGoal;
     }
