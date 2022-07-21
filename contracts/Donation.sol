@@ -3,13 +3,15 @@ pragma solidity ^0.8.6;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "./interfaces/IDonation.sol";
+import "./interfaces/IDonationAward.sol";
 
 /// @title Donation simulator
 /// @author Milos Covilo
 /// @notice You can use this contract for only the most basic campaign donations
 /// @dev All function calls are currently implemented without side effects
 /// @custom:experimental This is an experimental contract.
-contract Donation is Ownable {
+contract Donation is IDonation, Ownable {
     using Counters for Counters.Counter;
 
     struct HighestDonation {
@@ -107,7 +109,7 @@ contract Donation is Ownable {
         uint timeGoal, 
         uint moneyToRaisGoal, 
         address campaignManager
-    ) public onlyOwner validateString(name) validateString(description) {
+    ) public override onlyOwner validateString(name) validateString(description) {
         if (block.timestamp > timeGoal) revert InvalidTimeGoal();
         if (moneyToRaisGoal == 0) revert InvalidMoneyGoal();
 
@@ -121,7 +123,7 @@ contract Donation is Ownable {
     /// @dev Function has custom modifiers for validating funtion arguments. If all checks are passed DonationCreated event is emmited
     /// @dev ableToDonate Modifier for checking if campaign has IN_PROGRESS status or if exist
     /// @param campaignId Used to identify campaign
-    function donate(uint256 campaignId) public payable ableToDonate(campaignId) validateDonation {
+    function donate(uint256 campaignId) public override payable ableToDonate(campaignId) validateDonation {
         Campaign storage campaign = campaigns[campaignId];
 
         if (timeGoalReached(campaign.timeGoal)) {
@@ -135,6 +137,9 @@ contract Donation is Ownable {
             uint256 newBalance = campaign.balance + msg.value;
             uint256 donation = msg.value;
             
+            IDonationAward donationAward = IDonationAward(address(0x123));
+            uint256 returnedValue = donationAward.awardNft(msg.sender, "");
+
             if (moneyGoalReached(newBalance, campaign.moneyToRaisGoal)) {
                 campaign.status = CampaignStatus.COMPLETED;
                 uint256 balanceDiff = newBalance - campaign.moneyToRaisGoal;
@@ -158,7 +163,7 @@ contract Donation is Ownable {
     /// @notice Withdraw funds to campaign manager only if campaign is in COMPLETED status
     /// @dev campaignCompleted Modifier for checking if campaign is COMPLETED
     /// @param campaignId Used to identify campaign
-    function withdrawFunds(uint256 campaignId) public noReentrant campaignCompleted(campaignId) {
+    function withdrawFunds(uint256 campaignId) public override noReentrant campaignCompleted(campaignId) {
         Campaign storage campaign = campaigns[campaignId];
 
         if (campaign.campaignManager != msg.sender) revert WithdrawForbidden();

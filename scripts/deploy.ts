@@ -19,7 +19,13 @@ async function main() {
 
   await donation.deployed();
 
+  const DonationAward = await ethers.getContractFactory("DonationAward");
+  const donationAward = await DonationAward.deploy();
+
+  await donationAward.deployed();
+
   console.log(`Donation contract deployed to: ${donation.address}`);
+  console.log(`DonationAward contract deployed to: ${donationAward.address}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
