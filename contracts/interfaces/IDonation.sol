@@ -7,6 +7,7 @@ interface IDonation  {
         string calldata description, 
         uint timeGoal, 
         uint moneyToRaisGoal, 
+        string calldata tokenURI,
         address campaignManager
     ) external;
 

@@ -33,6 +33,7 @@ contract Donation is IDonation, Ownable {
         uint256 moneyToRaisGoal;
         uint256 balance;
         address campaignManager;
+        string tokenURI;
         CampaignStatus status;
     }
 
@@ -44,15 +45,22 @@ contract Donation is IDonation, Ownable {
 
     HighestDonation public highestDonation;
 
+    mapping(uint256 => mapping(address => bool)) private donatorAwarded;
+
+    address public donationAwardContractAddress;
+
     bool internal locked;
 
-    constructor() {}
+    constructor(address contractAddress) {
+        donationAwardContractAddress = contractAddress;
+    }
 
-    event CampaignCreated(address indexed creator, address indexed campaignManager, uint256 campaignId, string name);
+    event CampaignCreated(address indexed creator, address indexed campaignManager, uint256 campaignId);
     event DonationCreated(address indexed donator, uint256 amount);
     event FundsWithdrawed(address indexed receiver, uint256 amount);
     event CampaignArchived(uint256 campaignId);
     event CampaignTimeGoalReached();
+    event DonatorAwarded(address donator, uint256 campaignId, uint256 tokenId);
 
     error EmptyString();
     error InvalidMoneyGoal();
@@ -102,21 +110,23 @@ contract Donation is IDonation, Ownable {
     /// @param description Description of campaign
     /// @param timeGoal The time goal of campaign
     /// @param moneyToRaisGoal The money goal of campaign
+    /// @param tokenURI NFT uri
     /// @param campaignManager Wallet address where campign funds should be transfered
     function createCampaign(
         string calldata name, 
         string calldata description, 
         uint timeGoal, 
         uint moneyToRaisGoal, 
+        string calldata tokenURI,
         address campaignManager
     ) public override onlyOwner validateString(name) validateString(description) {
         if (block.timestamp > timeGoal) revert InvalidTimeGoal();
         if (moneyToRaisGoal == 0) revert InvalidMoneyGoal();
 
         campaignIdentifer.increment();
-        campaigns[campaignIdentifer.current()] = Campaign(name, description, timeGoal, moneyToRaisGoal, 0, campaignManager, CampaignStatus.IN_PROGRESS);
+        campaigns[campaignIdentifer.current()] = Campaign(name, description, timeGoal, moneyToRaisGoal, 0, campaignManager, tokenURI, CampaignStatus.IN_PROGRESS);
 
-        emit CampaignCreated(msg.sender, campaignManager, campaignIdentifer.current(), name);
+        emit CampaignCreated(msg.sender, campaignManager, campaignIdentifer.current());
     }
 
     /// @notice Send donation to specific campaign. Only applies on campaings which have IN_PROGRESS status. Donations less or equal to 0 are rejected
@@ -136,9 +146,6 @@ contract Donation is IDonation, Ownable {
         } else {
             uint256 newBalance = campaign.balance + msg.value;
             uint256 donation = msg.value;
-            
-            IDonationAward donationAward = IDonationAward(address(0x123));
-            uint256 returnedValue = donationAward.awardNft(msg.sender, "");
 
             if (moneyGoalReached(newBalance, campaign.moneyToRaisGoal)) {
                 campaign.status = CampaignStatus.COMPLETED;
@@ -152,9 +159,8 @@ contract Donation is IDonation, Ownable {
 
             campaign.balance += donation;
 
-            if (donation > highestDonation.amount) {
-                highestDonation = HighestDonation(msg.sender, donation);
-            }
+            awardNFT(campaignId, campaign.tokenURI);
+            checkHighestDonation(donation);
 
             emit DonationCreated(msg.sender, msg.value);
         } 
@@ -212,5 +218,26 @@ contract Donation is IDonation, Ownable {
     /// @param timeGoal Campaign time goal
     function timeGoalReached(uint256 timeGoal) private view returns(bool) {
         return block.timestamp >= timeGoal;
+    }
+
+    /// @notice Helper function to check highest donation
+    /// @param donation Current incoming donation
+    function checkHighestDonation(uint256 donation) private {
+        if (donation > highestDonation.amount) {
+            highestDonation = HighestDonation(msg.sender, donation);
+        }
+    }
+
+    /// @notice Helper function to check if donator is not awarded and award him
+    /// @dev IDonationAward interface to call external smart contract
+    /// @param campaignId Campaign ID
+    /// @param tokenURI NFT uri
+    function awardNFT(uint256 campaignId, string memory tokenURI) private {
+        if (!donatorAwarded[campaignId][msg.sender]) {
+            donatorAwarded[campaignId][msg.sender] = true;
+            uint256 tokenId = IDonationAward(donationAwardContractAddress).awardNft(msg.sender, tokenURI);
+
+            emit DonatorAwarded(msg.sender, campaignId, tokenId);
+        }
     }
 }

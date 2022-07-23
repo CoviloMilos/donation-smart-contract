@@ -1,35 +1,27 @@
-// We require the Hardhat Runtime Environment explicitly here. This is optional
-// but useful for running the script in a standalone fashion through `node <script>`.
-//
-// When running the script with `npx hardhat run <script>` you'll find the Hardhat
-// Runtime Environment's members available in the global scope.
 import { ethers } from "hardhat";
 
 async function main() {
-  // Hardhat always runs the compile task when running scripts with its command
-  // line interface.
-  //
-  // If this script is run directly using `node` you may want to call compile
-  // manually to make sure everything is compiled
-  // await hre.run('compile');
-
-  // We get the contract to deploy
-  const Donation = await ethers.getContractFactory("Donation");
-  const donation = await Donation.deploy();
-
-  await donation.deployed();
-
-  const DonationAward = await ethers.getContractFactory("DonationAward");
-  const donationAward = await DonationAward.deploy();
+  const DonationAwardFactory = await ethers.getContractFactory("DonationAward");
+  const donationAward = await DonationAwardFactory.deploy();
 
   await donationAward.deployed();
 
-  console.log(`Donation contract deployed to: ${donation.address}`);
   console.log(`DonationAward contract deployed to: ${donationAward.address}`);
+
+  // const DonationFactory = await ethers.getContractFactory("Donation");
+  // const donation = await DonationFactory.deploy(donationAward.address);
+
+  // await donation.deployed();
+
+  // console.log(`Donation contract deployed to: ${donation.address}`);
+
+  // await donationAward.transferOwnership(donation.address);
+
+  // console.log(
+  //   `DonationAward contract transfer ownership to: ${donation.address}`
+  // );
 }
 
-// We recommend this pattern to be able to use async/await everywhere
-// and properly handle errors.
 main().catch((error) => {
   console.error(error);
   process.exitCode = 1;

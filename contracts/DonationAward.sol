@@ -5,22 +5,29 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 
-contract DonationAward is ERC721URIStorage {
+contract DonationAward is Ownable, ERC721URIStorage {
     using Counters for Counters.Counter;
-    Counters.Counter private _tokenIds;
+    Counters.Counter private tokenIds;
 
-    constructor() ERC721("MyNFT", "NFT") {}
+    constructor() ERC721("DonationAwardContract", "DWNFT") {}
 
+    event NFTMinted(address donator, uint256 tokenId);
+
+    /// @notice Function for minting NFT
+    /// @dev This function emits NFTMinted event
+    /// @param recipient Donator address
+    /// @param tokenURI NFT uri
     function awardNft(address recipient, string memory tokenURI)
         external
         returns (uint256)
     {
-        _tokenIds.increment();
+        tokenIds.increment();
 
-        uint256 newItemId = _tokenIds.current();
-        _mint(recipient, newItemId);
-        _setTokenURI(newItemId, tokenURI);
+        uint256 tokenId = tokenIds.current();
+        _mint(recipient, tokenId);
+        _setTokenURI(tokenId, tokenURI);
 
-        return newItemId;
+        emit NFTMinted(recipient, tokenId);
+        return tokenId;
     }
 }
