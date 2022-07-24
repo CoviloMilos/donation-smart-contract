@@ -37,4 +37,15 @@ const getValidTimeGoal = async (addOn?: number) => {
 };
 
 const tokenID = 1;
-export { ERROR, EVENT, CampaignStatus, getValidTimeGoal, tokenID };
+
+const newCampaign = (managerAddress: any) => {
+  return {
+    name: "New Campaign",
+    description: "Campaign to help all kids across the world",
+    timeGoal: 123,
+    moneyToRaisGoal: ethers.utils.parseEther("3"),
+    tokenURI: "ipfs://QmPhKYBCd6j2YXCzhiiExP5kowaxjrs7jouiaPD41z1J5X",
+    campaignManager: managerAddress,
+  };
+};
+export { ERROR, EVENT, CampaignStatus, getValidTimeGoal, tokenID, newCampaign };

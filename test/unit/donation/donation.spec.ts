@@ -1,14 +1,14 @@
-import { Block } from "@ethersproject/abstract-provider";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { deployMockContract, MockContract } from "ethereum-waffle";
-import { Contract, ContractFactory, ContractTransaction, Signer } from "ethers";
-import { ethers, network, waffle } from "hardhat";
+import { Contract, ContractTransaction, Signer } from "ethers";
+import { ethers, network } from "hardhat";
 import {
   CampaignStatus,
   ERROR,
   EVENT,
   getValidTimeGoal,
+  newCampaign,
   tokenID,
 } from "./utils";
 import DonationAward from "../../../artifacts/contracts/DonationAward.sol/DonationAward.json";
@@ -19,6 +19,8 @@ describe("Donation Smart Contract", function () {
   let vitalik: SignerWithAddress;
   let joe: SignerWithAddress;
   let MockDonationAward: MockContract;
+  let campaign: any = {};
+  const FIVE_MINUTES = 5 * 60;
 
   before(async function () {
     [owner, vitalik, joe] = await ethers.getSigners();
@@ -32,6 +34,11 @@ describe("Donation Smart Contract", function () {
       .deploy(MockDonationAward.address);
   });
 
+  beforeEach(async function () {
+    campaign = newCampaign(joe.address);
+    campaign.timeGoal = await getValidTimeGoal(FIVE_MINUTES);
+  });
+
   describe("After deployed", async function () {
     it("should have Donation Award Contract address", async function () {
       expect(await DonationContract.donationAwardContractAddress()).to.be.eq(
@@ -41,18 +48,6 @@ describe("Donation Smart Contract", function () {
   });
 
   describe("Campaign", async function () {
-    const campaign: any = {};
-
-    beforeEach(async function () {
-      campaign.name = "New Campaign";
-      campaign.description = "Campaign to help all kids across the world";
-      campaign.timeGoal = 123;
-      campaign.moneyToRaisGoal = ethers.utils.parseEther("10");
-      campaign.tokenURI =
-        "ipfs://QmPhKYBCd6j2YXCzhiiExP5kowaxjrs7jouiaPD41z1J5X";
-      campaign.campaignManager = joe.address;
-    });
-
     it("should revert if caller is not owner", async function () {
       await expect(
         DonationContract.connect(vitalik).createCampaign(
@@ -76,13 +71,13 @@ describe("Donation Smart Contract", function () {
     });
 
     it("should revert if @param timeGoal is less then timestamp of latest block", async function () {
+      campaign.timeGoal = 123;
       await expect(
         DonationContract.createCampaign(...Object.values(campaign))
       ).to.be.revertedWith(ERROR.INVALID_TIME_GOAL);
     });
 
     it("should revert if @param moneyToRaisGoal is less or equal to 0", async function () {
-      campaign.timeGoal = await getValidTimeGoal();
       campaign.moneyToRaisGoal = ethers.constants.Zero;
       await expect(
         DonationContract.createCampaign(...Object.values(campaign))
@@ -90,8 +85,6 @@ describe("Donation Smart Contract", function () {
     });
 
     it("should create new campaign", async function () {
-      campaign.timeGoal = await getValidTimeGoal();
-
       const tx: ContractTransaction = await DonationContract.createCampaign(
         ...Object.values(campaign)
       );
@@ -128,27 +121,15 @@ describe("Donation Smart Contract", function () {
   });
 
   describe("Donate", async function () {
-    const campaign: any = {};
     let campaignId: number;
-    const FIVE_MINUTES = 5 * 60;
 
     before(async function () {
       await MockDonationAward.mock.awardNft.returns(tokenID);
     });
 
     beforeEach(async function () {
-      campaign.name = "New Campaign";
-      campaign.description = "Campaign to help all kids across the world";
-      campaign.timeGoal = await getValidTimeGoal(FIVE_MINUTES);
-      campaign.moneyToRaisGoal = ethers.utils.parseEther("3");
-      campaign.tokenURI =
-        "ipfs://QmPhKYBCd6j2YXCzhiiExP5kowaxjrs7jouiaPD41z1J5X";
-      campaign.campaignManager = joe.address;
-
       await DonationContract.createCampaign(...Object.values(campaign));
-      campaignId = Number(
-        (await DonationContract.campaignIdentifer()).toString()
-      );
+      campaignId = await DonationContract.campaignIdentifer();
     });
 
     it("should revert if campaign by @param id doesn't exist", async function () {
@@ -191,6 +172,9 @@ describe("Donation Smart Contract", function () {
         .to.emit(DonationContract, EVENT.DONATOR_AWARDED)
         .withArgs(vitalik.address, campaignId, tokenID);
 
+      // AssertionError: Waffle's calledOnContract is not supported by Hardhat
+      // expect("awardNft").to.be.calledOnContract(MockDonationAward);
+
       expect(donatedCampaign.status).to.be.equal(CampaignStatus.COMPLETED);
       expect(highestDonation.donor).to.be.equal(vitalik.address);
     });
@@ -219,23 +203,11 @@ describe("Donation Smart Contract", function () {
   });
 
   describe("Withdraw", async function () {
-    const campaign: any = {};
     let campaignId: number;
-    const FIVE_MINUTES = 5 * 60;
 
     beforeEach(async function () {
-      campaign.name = "New Campaign";
-      campaign.description = "Campaign to help all kids across the world";
-      campaign.timeGoal = await getValidTimeGoal(FIVE_MINUTES);
-      campaign.moneyToRaisGoal = ethers.utils.parseEther("3");
-      campaign.tokenURI =
-        "ipfs://QmPhKYBCd6j2YXCzhiiExP5kowaxjrs7jouiaPD41z1J5X";
-      campaign.campaignManager = joe.address;
-
       await DonationContract.createCampaign(...Object.values(campaign));
-      campaignId = Number(
-        (await DonationContract.campaignIdentifer()).toString()
-      );
+      campaignId = await DonationContract.campaignIdentifer();
     });
 
     it("should withdraw funds to campaign manager wallet", async function () {
@@ -282,6 +254,20 @@ describe("Donation Smart Contract", function () {
       await expect(DonationContract.withdrawFunds(campaignId)).to.revertedWith(
         ERROR.WITHDRAW_FORBIDDEN
       );
+    });
+  });
+
+  describe("Helpers", async function () {
+    it("should return true if timeGoal is reached", async function () {
+      expect(await DonationContract.timeGoalReached(1)).to.be.true;
+    });
+
+    it("should have highest donation", async function () {
+      const amount = ethers.utils.parseEther("10");
+      await DonationContract.checkHighestDonation(amount);
+      const highestDonation = await DonationContract.highestDonation();
+
+      expect(highestDonation.amount).to.be.equal(amount);
     });
   });
 });

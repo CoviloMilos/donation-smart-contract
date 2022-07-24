@@ -217,13 +217,13 @@ contract Donation is IDonation, Ownable {
     /// @notice Helper function to check if campaign time goal is reached
     /// @dev timeGoal is compared to block's timestamp
     /// @param timeGoal Campaign time goal
-    function timeGoalReached(uint256 timeGoal) private view returns(bool) {
+    function timeGoalReached(uint256 timeGoal) public view returns(bool) {
         return block.timestamp >= timeGoal;
     }
 
     /// @notice Helper function to check highest donation
     /// @param donation Current incoming donation
-    function checkHighestDonation(uint256 donation) private {
+    function checkHighestDonation(uint256 donation) public {
         if (donation > highestDonation.amount) {
             highestDonation = HighestDonation(msg.sender, donation);
         }
