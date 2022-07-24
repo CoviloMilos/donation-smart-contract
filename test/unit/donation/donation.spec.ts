@@ -1,95 +1,64 @@
 import { Block } from "@ethersproject/abstract-provider";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
-import { Contract, ContractTransaction } from "ethers";
-import { ethers, network } from "hardhat";
-import { CampaignStatus, ERROR, EVENT } from "./utils";
+import { deployMockContract, MockContract } from "ethereum-waffle";
+import { Contract, ContractFactory, ContractTransaction, Signer } from "ethers";
+import { ethers, network, waffle } from "hardhat";
+import {
+  CampaignStatus,
+  ERROR,
+  EVENT,
+  getValidTimeGoal,
+  tokenID,
+} from "./utils";
+import DonationAward from "../../../artifacts/contracts/DonationAward.sol/DonationAward.json";
 
 describe("Donation Smart Contract", function () {
   let DonationContract: Contract;
   let owner: SignerWithAddress;
-  let adminOne: SignerWithAddress;
   let vitalik: SignerWithAddress;
   let joe: SignerWithAddress;
+  let MockDonationAward: MockContract;
 
-  beforeEach(async function () {
-    [owner, adminOne, vitalik, joe] = await ethers.getSigners();
-    const factory = await ethers.getContractFactory("Donation");
-    DonationContract = await factory.connect(owner).deploy();
+  before(async function () {
+    [owner, vitalik, joe] = await ethers.getSigners();
+
+    MockDonationAward = await deployMockContract(vitalik, DonationAward.abi);
+    await MockDonationAward.deployed();
+
+    const contractFactory = await ethers.getContractFactory("Donation");
+    DonationContract = await contractFactory
+      .connect(owner)
+      .deploy(MockDonationAward.address);
   });
 
   describe("After deployed", async function () {
-    it("should have owner as first admin", async function () {
-      expect(await DonationContract.admins(owner.address)).to.be.true;
-    });
-  });
-
-  describe("Contract admins", async function () {
-    it("should revert assignAdmin if owner is not caller", async function () {
-      await expect(
-        DonationContract.connect(vitalik).assignAdmin(adminOne.address)
-      ).to.be.revertedWith(ERROR.ONLY_ONWER);
-    });
-
-    it("should assignAdmin if caller is owner", async function () {
-      const adminAddress = vitalik.address;
-      const tx: ContractTransaction = await DonationContract.assignAdmin(
-        adminAddress
+    it("should have Donation Award Contract address", async function () {
+      expect(await DonationContract.donationAwardContractAddress()).to.be.eq(
+        MockDonationAward.address
       );
-
-      expect(await DonationContract.admins(adminAddress)).to.be.true;
-      await expect(tx)
-        .to.emit(DonationContract, EVENT.ADMIN_ASSIGNED)
-        .withArgs(adminAddress);
-    });
-
-    it("should revert revokeAdmin if owner is not caller", async function () {
-      await expect(
-        DonationContract.connect(vitalik).revokeAdmin(adminOne.address)
-      ).to.be.revertedWith(ERROR.ONLY_ONWER);
-    });
-
-    it("should revokeAdmin if caller is owner", async function () {
-      const adminAddress = vitalik.address;
-      await DonationContract.assignAdmin(adminAddress);
-
-      const tx: ContractTransaction = await DonationContract.revokeAdmin(
-        adminAddress
-      );
-
-      expect(await DonationContract.admins(adminAddress)).to.be.false;
-      await expect(tx)
-        .to.emit(DonationContract, EVENT.ADMIN_REVOKED)
-        .withArgs(adminAddress);
-    });
-
-    it("should revert revokeAdmin if @param is owner address", async function () {
-      await expect(
-        DonationContract.revokeAdmin(owner.address)
-      ).to.be.revertedWith(ERROR.OWNER_REVOKE);
     });
   });
 
   describe("Campaign", async function () {
     const campaign: any = {};
-    before(async function () {
-      await DonationContract.assignAdmin(adminOne.address);
-    });
 
     beforeEach(async function () {
       campaign.name = "New Campaign";
       campaign.description = "Campaign to help all kids across the world";
       campaign.timeGoal = 123;
       campaign.moneyToRaisGoal = ethers.utils.parseEther("10");
+      campaign.tokenURI =
+        "ipfs://QmPhKYBCd6j2YXCzhiiExP5kowaxjrs7jouiaPD41z1J5X";
       campaign.campaignManager = joe.address;
     });
 
-    it("should revert if caller is not admin", async function () {
+    it("should revert if caller is not owner", async function () {
       await expect(
         DonationContract.connect(vitalik).createCampaign(
           ...Object.values(campaign)
         )
-      ).to.be.revertedWith(ERROR.CALLER_NOT_ADMIN);
+      ).to.be.revertedWith(ERROR.ONLY_ONWER);
     });
 
     it("should revert if @param name is empty string", async function () {
@@ -113,8 +82,7 @@ describe("Donation Smart Contract", function () {
     });
 
     it("should revert if @param moneyToRaisGoal is less or equal to 0", async function () {
-      const latestBlock = await ethers.provider.getBlock("latest");
-      campaign.timeGoal = latestBlock.timestamp + 1;
+      campaign.timeGoal = await getValidTimeGoal();
       campaign.moneyToRaisGoal = ethers.constants.Zero;
       await expect(
         DonationContract.createCampaign(...Object.values(campaign))
@@ -122,8 +90,7 @@ describe("Donation Smart Contract", function () {
     });
 
     it("should create new campaign", async function () {
-      const latestBlock = await ethers.provider.getBlock("latest");
-      campaign.timeGoal = latestBlock.timestamp + 1;
+      campaign.timeGoal = await getValidTimeGoal();
 
       const tx: ContractTransaction = await DonationContract.createCampaign(
         ...Object.values(campaign)
@@ -137,6 +104,7 @@ describe("Donation Smart Contract", function () {
         moneyToRaisGoal,
         balance,
         campaignManager,
+        tokenURI,
         status,
       ] = await DonationContract.campaigns(campaignId.toString());
 
@@ -145,8 +113,7 @@ describe("Donation Smart Contract", function () {
         .withArgs(
           owner.address,
           campaign.campaignManager,
-          campaignId.toString(),
-          campaign.name
+          campaignId.toString()
         );
 
       expect(name).to.be.equal(campaign.name);
@@ -155,6 +122,7 @@ describe("Donation Smart Contract", function () {
       expect(moneyToRaisGoal).to.be.equal(campaign.moneyToRaisGoal);
       expect(balance).to.be.equal(0);
       expect(campaignManager).to.be.equal(campaign.campaignManager);
+      expect(tokenURI).to.be.equal(campaign.tokenURI);
       expect(status).to.be.equal(CampaignStatus.IN_PROGRESS);
     });
   });
@@ -163,16 +131,18 @@ describe("Donation Smart Contract", function () {
     const campaign: any = {};
     let campaignId: number;
     const FIVE_MINUTES = 5 * 60;
-    let latestBlock: Block;
+
+    before(async function () {
+      await MockDonationAward.mock.awardNft.returns(tokenID);
+    });
 
     beforeEach(async function () {
-      await DonationContract.assignAdmin(adminOne.address);
-      latestBlock = await ethers.provider.getBlock("latest");
-
       campaign.name = "New Campaign";
       campaign.description = "Campaign to help all kids across the world";
-      campaign.timeGoal = latestBlock.timestamp + FIVE_MINUTES;
+      campaign.timeGoal = await getValidTimeGoal(FIVE_MINUTES);
       campaign.moneyToRaisGoal = ethers.utils.parseEther("3");
+      campaign.tokenURI =
+        "ipfs://QmPhKYBCd6j2YXCzhiiExP5kowaxjrs7jouiaPD41z1J5X";
       campaign.campaignManager = joe.address;
 
       await DonationContract.createCampaign(...Object.values(campaign));
@@ -203,6 +173,28 @@ describe("Donation Smart Contract", function () {
       ).to.revertedWith(ERROR.INSUFFICIENT_DONATION);
     });
 
+    it("should make campaign completed after donation", async function () {
+      const donation = ethers.utils.parseEther("5");
+      const tx: ContractTransaction = await DonationContract.connect(
+        vitalik
+      ).donate(campaignId, {
+        value: donation,
+      });
+
+      const donatedCampaign = await DonationContract.campaigns(campaignId);
+      const highestDonation = await DonationContract.highestDonation();
+
+      await expect(tx)
+        .to.emit(DonationContract, EVENT.DONATION_CREATED)
+        .withArgs(vitalik.address, donation);
+      await expect(tx)
+        .to.emit(DonationContract, EVENT.DONATOR_AWARDED)
+        .withArgs(vitalik.address, campaignId, tokenID);
+
+      expect(donatedCampaign.status).to.be.equal(CampaignStatus.COMPLETED);
+      expect(highestDonation.donor).to.be.equal(vitalik.address);
+    });
+
     it("should make campaign completed after time goal is reached", async function () {
       await network.provider.send("evm_setNextBlockTimestamp", [
         campaign.timeGoal + FIVE_MINUTES,
@@ -224,26 +216,6 @@ describe("Donation Smart Contract", function () {
       );
       expect(donatedCampaign.status).to.be.equal(CampaignStatus.COMPLETED);
     });
-
-    it("should make campaign completed after donation", async function () {
-      const donation = ethers.utils.parseEther("5");
-      const tx: ContractTransaction = await DonationContract.donate(
-        campaignId,
-        {
-          value: donation,
-        }
-      );
-
-      const donatedCampaign = await DonationContract.campaigns(campaignId);
-      const highestDonation = await DonationContract.highestDonation();
-
-      await expect(tx)
-        .to.emit(DonationContract, EVENT.DONATION_CREATED)
-        .withArgs(owner.address, donation);
-
-      expect(donatedCampaign.status).to.be.equal(CampaignStatus.COMPLETED);
-      expect(highestDonation.donor).to.be.equal(owner.address);
-    });
   });
 
   describe("Withdraw", async function () {
@@ -252,13 +224,12 @@ describe("Donation Smart Contract", function () {
     const FIVE_MINUTES = 5 * 60;
 
     beforeEach(async function () {
-      await DonationContract.assignAdmin(adminOne.address);
-      const latestBlock = await ethers.provider.getBlock("latest");
-
       campaign.name = "New Campaign";
       campaign.description = "Campaign to help all kids across the world";
-      campaign.timeGoal = latestBlock.timestamp + FIVE_MINUTES;
+      campaign.timeGoal = await getValidTimeGoal(FIVE_MINUTES);
       campaign.moneyToRaisGoal = ethers.utils.parseEther("3");
+      campaign.tokenURI =
+        "ipfs://QmPhKYBCd6j2YXCzhiiExP5kowaxjrs7jouiaPD41z1J5X";
       campaign.campaignManager = joe.address;
 
       await DonationContract.createCampaign(...Object.values(campaign));

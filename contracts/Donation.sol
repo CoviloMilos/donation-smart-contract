@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "./interfaces/IDonation.sol";
 import "./interfaces/IDonationAward.sol";
-
+import "hardhat/console.sol";
 /// @title Donation simulator
 /// @author Milos Covilo
 /// @notice You can use this contract for only the most basic campaign donations
@@ -87,6 +87,7 @@ contract Donation is IDonation, Ownable {
 
     modifier ableToDonate(uint256 id) {
         Campaign memory campaign = campaigns[id];
+
         if (campaign.status == CampaignStatus.NOT_FOUND) revert CampaignNotFound();
         if (campaign.status == CampaignStatus.COMPLETED) revert CampaignCompleted();
         _;
@@ -159,8 +160,8 @@ contract Donation is IDonation, Ownable {
 
             campaign.balance += donation;
 
-            awardNFT(campaignId, campaign.tokenURI);
-            checkHighestDonation(donation);
+            awardDonator(campaignId, campaign.tokenURI);
+            highestDonation = HighestDonation(msg.sender, donation);
 
             emit DonationCreated(msg.sender, msg.value);
         } 
@@ -232,11 +233,10 @@ contract Donation is IDonation, Ownable {
     /// @dev IDonationAward interface to call external smart contract
     /// @param campaignId Campaign ID
     /// @param tokenURI NFT uri
-    function awardNFT(uint256 campaignId, string memory tokenURI) private {
+    function awardDonator(uint256 campaignId, string memory tokenURI) private {
         if (!donatorAwarded[campaignId][msg.sender]) {
             donatorAwarded[campaignId][msg.sender] = true;
             uint256 tokenId = IDonationAward(donationAwardContractAddress).awardNft(msg.sender, tokenURI);
-
             emit DonatorAwarded(msg.sender, campaignId, tokenId);
         }
     }

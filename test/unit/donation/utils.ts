@@ -1,7 +1,7 @@
+import { ethers } from "hardhat";
+
 const ERROR = {
   ONLY_ONWER: "Ownable: caller is not the owner",
-  OWNER_REVOKE: "Owner must be admin",
-  CALLER_NOT_ADMIN: "CallerNotAdmin()",
   EMPTY_STRING: "EmptyString()",
   INVALID_TIME_GOAL: "InvalidTimeGoal()",
   INVALID_MONEY_GOAL: "InvalidMoneyGoal()",
@@ -13,13 +13,12 @@ const ERROR = {
 };
 
 const EVENT = {
-  ADMIN_ASSIGNED: "AdminAssigned",
-  ADMIN_REVOKED: "AdminRevoked",
   CAMPAIGN_CREATED: "CampaignCreated",
   DONATION_CREATED: "DonationCreated",
   FUNDS_WITHDRAWED: "FundsWithdrawed",
   CAMPAIGN_ARCHIVED: "CampaignArchived",
   CAMPAIGN_TIME_GOAL_REACHED: "CampaignTimeGoalReached",
+  DONATOR_AWARDED: "DonatorAwarded",
 };
 
 enum CampaignStatus {
@@ -29,4 +28,13 @@ enum CampaignStatus {
   ARCHIVED,
 }
 
-export { ERROR, EVENT, CampaignStatus };
+const getValidTimeGoal = async (addOn?: number) => {
+  let { timestamp } = await ethers.provider.getBlock("latest");
+  if (addOn) timestamp += addOn;
+  else timestamp += 1;
+
+  return timestamp;
+};
+
+const tokenID = 1;
+export { ERROR, EVENT, CampaignStatus, getValidTimeGoal, tokenID };
