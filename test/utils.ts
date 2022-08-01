@@ -19,6 +19,7 @@ const EVENT = {
   CAMPAIGN_ARCHIVED: "CampaignArchived",
   CAMPAIGN_TIME_GOAL_REACHED: "CampaignTimeGoalReached",
   DONATOR_AWARDED: "DonatorAwarded",
+  NFT_MINTED: "NFTMinted",
 };
 
 enum CampaignStatus {
@@ -38,7 +39,7 @@ const getValidTimeGoal = async (addOn?: number) => {
 
 const tokenID = 1;
 
-const newCampaign = (managerAddress: any) => {
+const newCampaign = (managerAddress?: any) => {
   return {
     name: "New Campaign",
     description: "Campaign to help all kids across the world",
@@ -48,4 +49,23 @@ const newCampaign = (managerAddress: any) => {
     campaignManager: managerAddress,
   };
 };
-export { ERROR, EVENT, CampaignStatus, getValidTimeGoal, tokenID, newCampaign };
+
+const DONATION_AWARD_NAME = "DonationAwardContract";
+const DONATION_AWARD_SYMBOL = "DWNFT";
+
+enum ContractEnum {
+  DONATION = "Donation",
+  DONATION_AWARD = "DonationAward",
+}
+
+export {
+  ERROR,
+  EVENT,
+  CampaignStatus,
+  getValidTimeGoal,
+  tokenID,
+  newCampaign,
+  DONATION_AWARD_NAME,
+  DONATION_AWARD_SYMBOL,
+  ContractEnum,
+};

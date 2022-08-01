@@ -3,9 +3,10 @@ pragma solidity ^0.8.6;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IDonation.sol";
 import "./interfaces/IDonationAward.sol";
-import "hardhat/console.sol";
+
 /// @title Donation simulator
 /// @author Milos Covilo
 /// @notice You can use this contract for only the most basic campaign donations
@@ -161,7 +162,7 @@ contract Donation is IDonation, Ownable {
             campaign.balance += donation;
 
             awardDonator(campaignId, campaign.tokenURI);
-            highestDonation = HighestDonation(msg.sender, donation);
+            checkHighestDonation(donation);
 
             emit DonationCreated(msg.sender, msg.value);
         } 
@@ -175,12 +176,12 @@ contract Donation is IDonation, Ownable {
 
         if (campaign.campaignManager != msg.sender) revert WithdrawForbidden();
 
+        uint256 amount = campaign.balance;
         campaign.balance = 0;
 
-        (bool success, ) = payable(msg.sender).call{ value: campaign.balance }("");
-        if (!success) revert FundsTransferFail();
+        payback(amount);
 
-        emit FundsWithdrawed(campaign.campaignManager, campaign.balance);
+        emit FundsWithdrawed(campaign.campaignManager, amount);
 
         archiveCampaign(campaignId, campaign);
     }

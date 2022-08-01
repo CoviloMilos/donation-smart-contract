@@ -1,19 +1,21 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
-import { deployMockContract, MockContract } from "ethereum-waffle";
-import { Contract, ContractTransaction, Signer } from "ethers";
+import { MockContract } from "ethereum-waffle";
+import { Contract, ContractTransaction } from "ethers";
 import { ethers, network } from "hardhat";
 import {
   CampaignStatus,
+  ContractEnum,
   ERROR,
   EVENT,
   getValidTimeGoal,
   newCampaign,
   tokenID,
-} from "./utils";
-import DonationAward from "../../../artifacts/contracts/DonationAward.sol/DonationAward.json";
+} from "../../utils";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+import { getMockContract } from "../../mocks";
 
-describe("Donation Smart Contract", function () {
+describe("Donation Contract", function () {
   let DonationContract: Contract;
   let owner: SignerWithAddress;
   let vitalik: SignerWithAddress;
@@ -21,22 +23,31 @@ describe("Donation Smart Contract", function () {
   let MockDonationAward: MockContract;
   let campaign: any = {};
   const FIVE_MINUTES = 5 * 60;
+  let campaignId: number;
 
-  before(async function () {
+  async function deployDonation() {
     [owner, vitalik, joe] = await ethers.getSigners();
 
-    MockDonationAward = await deployMockContract(vitalik, DonationAward.abi);
-    await MockDonationAward.deployed();
+    MockDonationAward = await getMockContract(
+      ContractEnum.DONATION_AWARD,
+      vitalik
+    );
 
     const contractFactory = await ethers.getContractFactory("Donation");
     DonationContract = await contractFactory
       .connect(owner)
       .deploy(MockDonationAward.address);
-  });
+  }
 
   beforeEach(async function () {
+    await loadFixture(deployDonation);
+
     campaign = newCampaign(joe.address);
     campaign.timeGoal = await getValidTimeGoal(FIVE_MINUTES);
+
+    await DonationContract.createCampaign(...Object.values(campaign));
+    campaignId = await DonationContract.campaignIdentifer();
+    await MockDonationAward.mock.awardNft.returns(tokenID);
   });
 
   describe("After deployed", async function () {
@@ -88,7 +99,8 @@ describe("Donation Smart Contract", function () {
       const tx: ContractTransaction = await DonationContract.createCampaign(
         ...Object.values(campaign)
       );
-      const campaignId = await DonationContract.campaignIdentifer();
+
+      const newCampaignId = await DonationContract.campaignIdentifer();
 
       const [
         name,
@@ -99,14 +111,14 @@ describe("Donation Smart Contract", function () {
         campaignManager,
         tokenURI,
         status,
-      ] = await DonationContract.campaigns(campaignId.toString());
+      ] = await DonationContract.campaigns(newCampaignId.toString());
 
       await expect(tx)
         .to.emit(DonationContract, EVENT.CAMPAIGN_CREATED)
         .withArgs(
           owner.address,
           campaign.campaignManager,
-          campaignId.toString()
+          newCampaignId.toString()
         );
 
       expect(name).to.be.equal(campaign.name);
@@ -121,17 +133,6 @@ describe("Donation Smart Contract", function () {
   });
 
   describe("Donate", async function () {
-    let campaignId: number;
-
-    before(async function () {
-      await MockDonationAward.mock.awardNft.returns(tokenID);
-    });
-
-    beforeEach(async function () {
-      await DonationContract.createCampaign(...Object.values(campaign));
-      campaignId = await DonationContract.campaignIdentifer();
-    });
-
     it("should revert if campaign by @param id doesn't exist", async function () {
       await expect(
         DonationContract.donate(98765, { value: ethers.constants.One })
@@ -203,13 +204,6 @@ describe("Donation Smart Contract", function () {
   });
 
   describe("Withdraw", async function () {
-    let campaignId: number;
-
-    beforeEach(async function () {
-      await DonationContract.createCampaign(...Object.values(campaign));
-      campaignId = await DonationContract.campaignIdentifer();
-    });
-
     it("should withdraw funds to campaign manager wallet", async function () {
       await DonationContract.connect(vitalik).donate(campaignId, {
         value: ethers.utils.parseEther("4"),
@@ -219,6 +213,9 @@ describe("Donation Smart Contract", function () {
         joe
       ).withdrawFunds(campaignId);
 
+      const rc = await tx.wait();
+      const eventAmount = rc.events![0].args!["amount"];
+
       const archivedCampaignIdentifier = (
         await DonationContract.archivedCampaignIdentifer()
       ).toString();
@@ -227,7 +224,9 @@ describe("Donation Smart Contract", function () {
         archivedCampaignIdentifier
       );
 
-      await expect(tx).to.emit(DonationContract, EVENT.FUNDS_WITHDRAWED);
+      await expect(tx)
+        .to.emit(DonationContract, EVENT.FUNDS_WITHDRAWED)
+        .withArgs(joe.address, eventAmount);
       await expect(tx)
         .to.emit(DonationContract, EVENT.CAMPAIGN_ARCHIVED)
         .withArgs(archivedCampaignIdentifier);
