@@ -33,7 +33,9 @@ describe("Donation Contract", function () {
       vitalik
     );
 
-    const contractFactory = await ethers.getContractFactory("Donation");
+    const contractFactory = await ethers.getContractFactory(
+      ContractEnum.DONATION
+    );
     DonationContract = await contractFactory
       .connect(owner)
       .deploy(MockDonationAward.address);

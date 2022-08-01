@@ -4,6 +4,7 @@ import { loadFixture } from "ethereum-waffle";
 import { BigNumber, Contract } from "ethers";
 import { ethers } from "hardhat";
 import {
+  ContractEnum,
   DONATION_AWARD_NAME,
   DONATION_AWARD_SYMBOL,
   EVENT,
@@ -17,7 +18,9 @@ describe("Donation Award Contract", function () {
   async function deployDonationAward() {
     [owner] = await ethers.getSigners();
 
-    const contractFactory = await ethers.getContractFactory("DonationAward");
+    const contractFactory = await ethers.getContractFactory(
+      ContractEnum.DONATION_AWARD
+    );
     DonationAwardContract = await contractFactory.connect(owner).deploy();
   }
 

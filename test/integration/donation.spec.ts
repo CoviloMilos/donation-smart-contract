@@ -3,7 +3,13 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { Contract } from "ethers";
 import { ethers } from "hardhat";
-import { EVENT, getValidTimeGoal, newCampaign, tokenID } from "../utils";
+import {
+  ContractEnum,
+  EVENT,
+  getValidTimeGoal,
+  newCampaign,
+  tokenID,
+} from "../utils";
 
 describe("Integration", function () {
   let DonationContract: Contract;
@@ -16,11 +22,13 @@ describe("Integration", function () {
     [owner, joe] = await ethers.getSigners();
 
     const donationAwardFactory = await ethers.getContractFactory(
-      "DonationAward"
+      ContractEnum.DONATION_AWARD
     );
     DonationAwardContract = await donationAwardFactory.deploy();
 
-    const donationFactory = await ethers.getContractFactory("Donation");
+    const donationFactory = await ethers.getContractFactory(
+      ContractEnum.DONATION
+    );
     DonationContract = await donationFactory
       .connect(owner)
       .deploy(DonationAwardContract.address);
