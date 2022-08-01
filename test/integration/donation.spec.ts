@@ -3,13 +3,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { Contract } from "ethers";
 import { ethers } from "hardhat";
-import {
-  ContractEnum,
-  EVENT,
-  getValidTimeGoal,
-  newCampaign,
-  tokenID,
-} from "../utils";
+import { ContractEnum, EVENT, newCampaign, tokenID } from "../utils";
 
 describe("Integration", function () {
   let DonationContract: Contract;
@@ -53,8 +47,7 @@ describe("Integration", function () {
   });
 
   it("should award donator after donation", async function () {
-    const campaign = newCampaign(joe.address);
-    campaign.timeGoal = await getValidTimeGoal(FIVE_MINUTES);
+    const campaign = await newCampaign(joe.address);
 
     await DonationContract.createCampaign(...Object.values(campaign));
     const campaignId = await DonationContract.campaignIdentifer();

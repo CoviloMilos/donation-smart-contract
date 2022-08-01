@@ -8,7 +8,6 @@ import {
   ContractEnum,
   ERROR,
   EVENT,
-  getValidTimeGoal,
   newCampaign,
   tokenID,
 } from "../../utils";
@@ -44,8 +43,7 @@ describe("Donation Contract", function () {
   beforeEach(async function () {
     await loadFixture(deployDonation);
 
-    campaign = newCampaign(joe.address);
-    campaign.timeGoal = await getValidTimeGoal(FIVE_MINUTES);
+    campaign = await newCampaign(joe.address);
 
     await DonationContract.createCampaign(...Object.values(campaign));
     campaignId = await DonationContract.campaignIdentifer();
