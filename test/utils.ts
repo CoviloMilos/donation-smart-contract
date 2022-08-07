@@ -1,5 +1,3 @@
-import { ethers } from "hardhat";
-
 const ERROR = {
   ONLY_ONWER: "Ownable: caller is not the owner",
   EMPTY_STRING: "EmptyString()",
@@ -29,29 +27,6 @@ enum CampaignStatus {
   ARCHIVED,
 }
 
-const getValidTimeGoal = async (addOn?: number) => {
-  let { timestamp } = await ethers.provider.getBlock("latest");
-  if (addOn) timestamp += addOn;
-  else timestamp += 1;
-
-  return timestamp;
-};
-
-const tokenID = 1;
-const FIVE_MINUTES = 5 * 60;
-
-const newCampaign = async (managerAddress?: any) => {
-  const timeGoal = await getValidTimeGoal(5 * 60);
-  return {
-    name: "New Campaign",
-    description: "Campaign to help all kids across the world",
-    timeGoal,
-    moneyToRaisGoal: ethers.utils.parseEther("3"),
-    tokenURI: "ipfs://QmPhKYBCd6j2YXCzhiiExP5kowaxjrs7jouiaPD41z1J5X",
-    campaignManager: managerAddress,
-  };
-};
-
 const DONATION_AWARD_NAME = "DonationAwardContract";
 const DONATION_AWARD_SYMBOL = "DWNFT";
 
@@ -64,8 +39,6 @@ export {
   ERROR,
   EVENT,
   CampaignStatus,
-  tokenID,
-  newCampaign,
   DONATION_AWARD_NAME,
   DONATION_AWARD_SYMBOL,
   ContractEnum,

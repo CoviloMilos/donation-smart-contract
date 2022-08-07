@@ -8,18 +8,18 @@ async function main() {
 
   console.log(`DonationAward contract deployed to: ${donationAward.address}`);
 
-  // const DonationFactory = await ethers.getContractFactory("Donation");
-  // const donation = await DonationFactory.deploy(donationAward.address);
+  const DonationFactory = await ethers.getContractFactory("Donation");
+  const donation = await DonationFactory.deploy(donationAward.address);
 
-  // await donation.deployed();
+  await donation.deployed();
 
-  // console.log(`Donation contract deployed to: ${donation.address}`);
+  console.log(`Donation contract deployed to: ${donation.address}`);
 
-  // await donationAward.transferOwnership(donation.address);
+  await donationAward.transferOwnership(donation.address);
 
-  // console.log(
-  //   `DonationAward contract transfer ownership to: ${donation.address}`
-  // );
+  console.log(
+    `DonationAward contract transfer ownership to: ${donation.address}`
+  );
 }
 
 main().catch((error) => {

@@ -3,14 +3,14 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { Contract } from "ethers";
 import { ethers } from "hardhat";
-import { ContractEnum, EVENT, newCampaign, tokenID } from "../utils";
+import { newCampaign, tokenID } from "../mocks";
+import { ContractEnum, EVENT } from "../utils";
 
 describe("Integration", function () {
   let DonationContract: Contract;
   let DonationAwardContract: Contract;
   let owner: SignerWithAddress;
   let joe: SignerWithAddress;
-  const FIVE_MINUTES = 5 * 60;
 
   async function deploy() {
     [owner, joe] = await ethers.getSigners();

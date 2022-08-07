@@ -3,12 +3,12 @@ import { expect } from "chai";
 import { loadFixture } from "ethereum-waffle";
 import { BigNumber, Contract } from "ethers";
 import { ethers } from "hardhat";
+import { tokenURI } from "../../mocks";
 import {
   ContractEnum,
   DONATION_AWARD_NAME,
   DONATION_AWARD_SYMBOL,
   EVENT,
-  newCampaign,
 } from "../../utils";
 
 describe("Donation Award Contract", function () {
@@ -39,13 +39,13 @@ describe("Donation Award Contract", function () {
   });
 
   it(`should award NFT to donator`, async function () {
-    const tokenURI = newCampaign();
     const tx = await DonationAwardContract.awardNft(owner.address, tokenURI);
     const rc = await tx.wait();
-    const event = rc.events.find(
+    const event = rc.events!.find(
       (event: any) => event.event === EVENT.NFT_MINTED
     );
-    const [donator, tokenID] = event.args;
+
+    const [donator, tokenID] = event!.args || [];
 
     await expect(tx)
       .to.emit(DonationAwardContract, EVENT.NFT_MINTED)

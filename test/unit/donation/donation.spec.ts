@@ -3,16 +3,14 @@ import { expect } from "chai";
 import { MockContract } from "ethereum-waffle";
 import { Contract, ContractTransaction } from "ethers";
 import { ethers, network } from "hardhat";
+import { CampaignStatus, ContractEnum, ERROR, EVENT } from "../../utils";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import {
-  CampaignStatus,
-  ContractEnum,
-  ERROR,
-  EVENT,
+  FIVE_MINUTES,
+  getMockContract,
   newCampaign,
   tokenID,
-} from "../../utils";
-import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
-import { getMockContract } from "../../mocks";
+} from "../../mocks";
 
 describe("Donation Contract", function () {
   let DonationContract: Contract;
@@ -21,7 +19,6 @@ describe("Donation Contract", function () {
   let joe: SignerWithAddress;
   let MockDonationAward: MockContract;
   let campaign: any = {};
-  const FIVE_MINUTES = 5 * 60;
   let campaignId: number;
 
   async function deployDonation() {
@@ -109,7 +106,7 @@ describe("Donation Contract", function () {
         moneyToRaisGoal,
         balance,
         campaignManager,
-        tokenURI,
+        tokenURL,
         status,
       ] = await DonationContract.campaigns(newCampaignId.toString());
 
@@ -127,7 +124,7 @@ describe("Donation Contract", function () {
       expect(moneyToRaisGoal).to.be.equal(campaign.moneyToRaisGoal);
       expect(balance).to.be.equal(0);
       expect(campaignManager).to.be.equal(campaign.campaignManager);
-      expect(tokenURI).to.be.equal(campaign.tokenURI);
+      expect(tokenURL).to.be.equal(campaign.tokenURI);
       expect(status).to.be.equal(CampaignStatus.IN_PROGRESS);
     });
   });
