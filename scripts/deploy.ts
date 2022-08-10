@@ -15,7 +15,8 @@ async function main() {
 
   console.log(`Donation contract deployed to: ${donation.address}`);
 
-  await donationAward.transferOwnership(donation.address);
+  const owner = await donation.owner();
+  await donationAward.transferOwnership(owner);
 
   console.log(
     `DonationAward contract transfer ownership to: ${donation.address}`
