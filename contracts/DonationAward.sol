@@ -9,9 +9,22 @@ contract DonationAward is Ownable, ERC721URIStorage {
     using Counters for Counters.Counter;
     Counters.Counter private tokenIds;
 
+    address private donationContractAddress;
+
     constructor() ERC721("DonationAwardContract", "DWNFT") {}
 
     event NFTMinted(address donator, uint256 tokenId);
+
+    error NotAllowedSender();
+
+    /// @notice awardNft modifier
+    /// @dev This guarantees minting only from Donation contract
+    modifier onlyAllowedSender() {
+        if (msg.sender != donationContractAddress) {
+            revert NotAllowedSender();
+        }
+        _;
+    }
 
     /// @notice Function for minting NFT
     /// @dev This function emits NFTMinted event
@@ -19,15 +32,21 @@ contract DonationAward is Ownable, ERC721URIStorage {
     /// @param tokenURI NFT uri
     function awardNft(address recipient, string memory tokenURI)
         external
+        onlyAllowedSender
         returns (uint256)
     {
         tokenIds.increment();
-
         uint256 tokenId = tokenIds.current();
         _mint(recipient, tokenId);
         _setTokenURI(tokenId, tokenURI);
 
         emit NFTMinted(recipient, tokenId);
         return tokenId;
+    }
+
+    /// @notice set donation contract address to allow awartNft call only from it's address
+    /// @dev donation contract address setter
+    function setDonationContractAddress(address donationAddress) external onlyOwner {
+        donationContractAddress = donationAddress;
     }
 }
